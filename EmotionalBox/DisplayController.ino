@@ -5,8 +5,8 @@
 #define COLOR_WHITE 0
 #define COLOR_BLACK 1
 #define COLOR_RED 2
-#define UNCOLORED 0
-#define COLORED 1
+#define UNCOLORED 1
+#define COLORED 0
 #define DISPLAY_WIDTH 400 // hardware-defined
 #define DISPLAY_HEIGHT 300 // hardware-defined
 #define DISPLAY_SIZE DISPLAY_WIDTH * DISPLAY_HEIGHT
@@ -15,11 +15,26 @@
 #define PIXEL_HEIGHT DISPLAY_HEIGHT / PIXEL_SIZE
 #define PIXEL_AMOUNT PIXEL_WIDTH * PIXEL_HEIGHT
 
-unsigned char image[PIXEL_AMOUNT];
 unsigned char displayBufferBlack[DISPLAY_SIZE];
 unsigned char displayBufferRed[DISPLAY_SIZE];
 Epd epd;
-Paint paint(image, PIXEL_WIDTH, PIXEL_HEIGHT);    //width should be the multiple of 8
+Paint blackPaint(displayBufferBlack, DISPLAY_WIDTH, DISPLAY_HEIGHT);    //width should be the multiple of 8
+Paint redPaint(displayBufferRed, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+unsigned char face[180] = {
+  0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0,
+  1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1,
+  1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1,
+  1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+  0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+};
 
 void setupDisplay() {
   Serial.begin(115200);
@@ -28,63 +43,45 @@ void setupDisplay() {
     return;
   }
 
-  //clearDisplay();
-  
-  paint.Clear(COLOR_WHITE);
-  paint.DrawAbsolutePixel(0, 0, COLOR_RED);
-  paint.DrawAbsolutePixel(1, 0, COLOR_BLACK);
+  blackPaint.Clear(UNCOLORED);
+  redPaint.Clear(UNCOLORED);
+  //drawBlackPixel(0, 0, COLORED);
+  drawImage(face, 20, 20, 15, 12);
   updateDisplay();
   
   epd.Sleep();
   Serial.println("Sleeping");
 }
 
-void drawBufferPixel(unsigned char* buffer, int x, int y, char color) {
-  int ax;
-  int ay;
-  for (int rx = 0; rx < PIXEL_SIZE; rx++) {
-    for (int ry = 0; ry < PIXEL_SIZE; ry++) {
-      ax = x * PIXEL_SIZE + rx;
-      ay = y * PIXEL_SIZE + ry;
-      buffer[ax + ay * DISPLAY_WIDTH] = color;
-    }
-  }
+void drawBlackPixel(int x, int y, char color) {
+  int ax = x * PIXEL_SIZE;
+  int ay = y * PIXEL_SIZE;
+  blackPaint.DrawFilledRectangle(ax, ay, ax + PIXEL_SIZE, ay + PIXEL_SIZE, color);
 }
 
-void updateDisplayBuffer(unsigned char* buffer, char color) {
+void drawRedPixel(int x, int y, char color) {
+  Serial.println("Drawing Pixel");
+  int ax = x * PIXEL_SIZE;
+  int ay = x * PIXEL_SIZE;
+  redPaint.DrawFilledRectangle(ax, ay, ax + PIXEL_SIZE, ay + PIXEL_SIZE, color);
+}
+
+void drawImage(unsigned char* buffer, int x, int y, int width, int height) {
+  for (int x1 = 0; x1 < width; x1++) {
+    for (int y1 = 0; y1 < height; y1++) {
+      if (buffer[x1 + (y1 * width)] == 1) {
+        drawBlackPixel(x + x1, y + y1, COLORED);
+      }
+    }
+  }
 }
 
 void updateDisplay() {
   Serial.println("Updating Display");
   epd.ClearFrame();
-  
-  fillBuffer(displayBufferBlack, COLORED);
-  //fillBufferRandom(displayBufferBlack);
-  
-  epd.SetPartialWindowBlack(displayBufferBlack, 0, 0, 400, 300);
+  epd.SetPartialWindowBlack(blackPaint.GetImage(), 0, 0, 400, 300);
+  epd.SetPartialWindowRed(redPaint.GetImage(), 0, 0, 400, 300);
   epd.DisplayFrame();
-  
-  printBuffer(displayBufferBlack);
-}
-
-void fillBuffer(unsigned char* buffer, char color) {
-  for (int i = 0; i < DISPLAY_SIZE; i++) {
-    buffer[i] = color;
-  }
-}
-
-void fillBufferRandom(unsigned char* buffer) {
-  for (int i = 0; i < DISPLAY_SIZE; i++) {
-    if (random(0, 2) == 0) {
-      buffer[i] = COLORED;
-    }
-  }
-}
-
-void printBuffer(unsigned char* buffer) {
-  for (int i = 0; i < DISPLAY_SIZE; i++) {
-    Serial.println(String(buffer[i]));
-  }
 }
 
 void clearDisplay() {
